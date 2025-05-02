@@ -10,10 +10,13 @@ import (
 	"strings"
 	"syscall"
 
+	"payment"
+
 	"github.com/go-kit/kit/log"
-	"github.com/microservices-demo/payment"
 	stdopentracing "github.com/opentracing/opentracing-go"
-	zipkin "github.com/openzipkin/zipkin-go-opentracing"
+	zipkin "github.com/openzipkin-contrib/zipkin-go-opentracing"
+	zipkingo "github.com/openzipkin/zipkin-go"
+	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
 	"golang.org/x/net/context"
 )
 
@@ -34,8 +37,8 @@ func main() {
 		var logger log.Logger
 		{
 			logger = log.NewLogfmtLogger(os.Stderr)
-			logger = log.NewContext(logger).With("ts", log.DefaultTimestampUTC)
-			logger = log.NewContext(logger).With("caller", log.DefaultCaller)
+			logger = log.With(logger, "ts", log.DefaultTimestampUTC)
+			logger = log.With(logger, "caller", log.DefaultCaller)
 		}
 		// Find service local IP.
 		conn, err := net.Dial("udp", "8.8.8.8:80")
@@ -44,30 +47,42 @@ func main() {
 			os.Exit(1)
 		}
 		localAddr := conn.LocalAddr().(*net.UDPAddr)
-		host := strings.Split(localAddr.String(), ":")[0]
+		_ = strings.Split(localAddr.String(), ":")[0]
 		defer conn.Close()
+
 		if *zip == "" {
 			tracer = stdopentracing.NoopTracer{}
 		} else {
-			logger := log.NewContext(logger).With("tracer", "Zipkin")
+			logger := log.With(logger, "tracer", "Zipkin")
 			logger.Log("addr", zip)
-			collector, err := zipkin.NewHTTPCollector(
-				*zip,
-				zipkin.HTTPLogger(logger),
-			)
+
+			conn, err := net.Dial("udp", "8.8.8.8:80")
 			if err != nil {
 				logger.Log("err", err)
 				os.Exit(1)
 			}
-			tracer, err = zipkin.NewTracer(
-				zipkin.NewRecorder(collector, false, fmt.Sprintf("%v:%v", host, port), ServiceName),
-			)
+			localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+			reporter := zipkinhttp.NewReporter(*zip)
+			defer reporter.Close()
 			if err != nil {
 				logger.Log("err", err)
 				os.Exit(1)
 			}
+			endpoint, err := zipkingo.NewEndpoint("catalogue", localAddr.String())
+			if err != nil {
+				logger.Log("unable to create local endpoint: %+v\n", err)
+				os.Exit(1)
+			}
+
+			nativeTracer, err := zipkingo.NewTracer(reporter, zipkingo.WithLocalEndpoint(endpoint))
+			if err != nil {
+				logger.Log("unable to create tracer: %+v\n", err)
+			}
+			tracer = zipkin.Wrap(nativeTracer)
+
 		}
-		stdopentracing.InitGlobalTracer(tracer)
+		stdopentracing.SetGlobalTracer(tracer)
 
 	}
 	// Mechanical stuff.
