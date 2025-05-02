@@ -1,6 +1,6 @@
 module payment
 
-go 1.24.2
+go 1.23.0
 
 require (
 	github.com/go-kit/kit v0.13.0
