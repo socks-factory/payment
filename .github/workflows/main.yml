@@ -23,7 +23,7 @@ jobs:
       GROUP: weaveworksdemos 
       COMMIT: ${{ github.sha }}
       REPO: payment
-      GO_VERSION: 1.7
+      GO_VERSION: 1.23.0
       GOPATH: /home/runner/work/payment/payment/go/
     steps:
     - uses: actions/checkout@v2
