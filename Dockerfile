@@ -9,9 +9,19 @@ COPY . ./
 
 RUN make
 
-FROM scratch
+FROM alpine:3
 
 COPY --from=build /app/payment /payment
+
+ENV	SERVICE_USER=myuser \
+	SERVICE_UID=10001 \
+	SERVICE_GROUP=mygroup \
+	SERVICE_GID=10001
+
+RUN	addgroup -g ${SERVICE_GID} ${SERVICE_GROUP} && \
+	adduser -g "${SERVICE_NAME} user" -D -H -G ${SERVICE_GROUP} -s /sbin/nologin -u ${SERVICE_UID} ${SERVICE_USER} && \
+	chmod +x /payment && \
+    chown -R ${SERVICE_USER}:${SERVICE_GROUP} /payment
 
 LABEL org.label-schema.vendor="SUSE" \
   org.label-schema.build-date="${BUILD_DATE}" \
@@ -23,6 +33,8 @@ LABEL org.label-schema.vendor="SUSE" \
   org.label-schema.vcs-ref="${COMMIT}" \
   org.label-schema.schema-version="1.0"
 
-EXPOSE 8080
-CMD ["/payment", "-port=8080"]
+USER ${SERVICE_USER}
+
+EXPOSE 80
+CMD ["/payment", "-port=80"]
 
