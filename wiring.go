@@ -9,7 +9,6 @@ import (
 
 	stdopentracing "github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/weaveworks/common/middleware"
 )
 
 var (
@@ -45,15 +44,5 @@ func WireUp(ctx context.Context, declineAmount float32, tracer stdopentracing.Tr
 
 	router := MakeHTTPHandler(ctx, endpoints, logger, tracer)
 
-	httpMiddleware := []middleware.Interface{
-		middleware.Instrument{
-			Duration:     HTTPLatency,
-			RouteMatcher: router,
-		},
-	}
-
-	// Handler
-	handler := middleware.Merge(httpMiddleware...).Wrap(router)
-
-	return handler, logger
+	return router, logger
 }
