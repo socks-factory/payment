@@ -21,7 +21,9 @@ ENV	SERVICE_USER=myuser \
 RUN	addgroup -g ${SERVICE_GID} ${SERVICE_GROUP} && \
 	adduser -g "${SERVICE_NAME} user" -D -H -G ${SERVICE_GROUP} -s /sbin/nologin -u ${SERVICE_UID} ${SERVICE_USER} && \
 	chmod +x /payment && \
-    chown -R ${SERVICE_USER}:${SERVICE_GROUP} /payment
+        apk add --update libcap && \
+    chown -R ${SERVICE_USER}:${SERVICE_GROUP} /payment && \
+    setcap 'cap_net_bind_service=+ep' /payment
 
 LABEL org.label-schema.vendor="SUSE" \
   org.label-schema.build-date="${BUILD_DATE}" \
